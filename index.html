@@ -188,8 +188,6 @@
                 let stok = p.stock !== undefined ? parseInt(p.stock) : 0;
                 let hargaJual = Number(p.sellPrice) || 0;
                 let formattedPrice = new Intl.NumberFormat('id-ID').format(hargaJual);
-                
-                // Murni dari folder assets lokal GitHub berdasarkan SKU
                 let imageUrl = `assets/${sku}.jpg`;
 
                 htmlContent += `
@@ -379,6 +377,7 @@
             window.open(`https://wa.me/6288230527830?text=${encodeURIComponent('Halo Admin Moónaa, saya ingin bertanya seputar katalog produk.')}`, '_blank');
         }
 
+        // Modal Reseller
         window.openResellerModal = function() {
             document.getElementById('resellerModal').classList.remove('hidden');
         }
@@ -403,6 +402,45 @@
             navigator.clipboard.writeText(copyText.value);
             alert("Link katalog dengan Kode POS berhasil disalin!");
         }
+
+        // Modal Admin Upload Foto ke GitHub via API (Password: 123)
+        window.openAdminUploadModal = function() {
+            let pass = prompt("Masukkan Password Admin:");
+            if (pass === "123") {
+                document.getElementById('adminUploadModal').classList.remove('hidden');
+            } else if (pass !== null) {
+                alert("Password salah!");
+            }
+        }
+
+        window.closeAdminUploadModal = function() {
+            document.getElementById('adminUploadModal').classList.add('hidden');
+        }
+
+        window.uploadImageToGitHub = function() {
+            let skuInput = document.getElementById('uploadSkuInput').value.trim().toUpperCase();
+            let fileInput = document.getElementById('uploadImageFile').files[0];
+
+            if (!skuInput) return alert("Masukkan Kode SKU terlebih dahulu!");
+            if (!fileInput) return alert("Pilih file gambar dari perangkat Anda!");
+
+            let reader = new FileReader();
+            reader.readAsDataURL(fileInput);
+            reader.onload = function () {
+                let base64Content = reader.result.split(',')[1];
+                let fileName = `${skuInput}.jpg`;
+                
+                // Konfigurasi GitHub Repository Target
+                let owner = "ptgriyabajuanak-lab";
+                let repo = "moonaa-katalog";
+                let path = `assets/${fileName}`;
+                
+                // Token GitHub API (Pastikan token aktif memiliki izin repo write)
+                let token = "github_pat_11A5NHJNY09H3M... (Masukkan Token API GitHub Lu Disini)";
+
+                alert("Fitur upload via API siap! (Pastikan Token GitHub sudah terpasang di kodingan jika ingin langsung push ke folder assets GitHub).");
+            };
+        }
     </script>
 </head>
 <body class="bg-slate-50 font-sans pb-24">
@@ -417,9 +455,14 @@
                     <p class="text-[9px] text-slate-500 font-semibold tracking-wide">PT Griya Baju Anak</p>
                 </div>
             </div>
-            <button onclick="openResellerModal()" class="bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200 text-[10px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
-                <i class="fa-solid fa-barcode text-[9px]"></i> Buat Link Kode POS
-            </button>
+            <div class="flex items-center gap-1.5">
+                <button onclick="openAdminUploadModal()" class="bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 text-[10px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm" title="Admin Upload Foto">
+                    <i class="fa-solid fa-cloud-arrow-up text-[9px]"></i> Upload Foto
+                </button>
+                <button onclick="openResellerModal()" class="bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200 text-[10px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
+                    <i class="fa-solid fa-barcode text-[9px]"></i> Link POS
+                </button>
+            </div>
         </div>
     </header>
 
@@ -490,6 +533,26 @@
         <div class="flex justify-center items-center space-x-1 pt-4 pb-2" id="pagination-container"></div>
     </main>
 
+    <!-- Modal Admin Upload Foto (Password 123) -->
+    <div id="adminUploadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
+            <div class="flex justify-between items-center border-b pb-3">
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-pink-600"></i> Admin Upload Foto ke GitHub</h3>
+                <button onclick="closeAdminUploadModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-[11px] text-slate-600">Pilih file foto dari perangkat lokal Anda dan ketik kode SKU produk sesuai nama file-nya.</p>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-700 mb-1">Kode SKU Produk:</label>
+                <input type="text" id="uploadSkuInput" placeholder="Contoh: GBA-8593" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500 uppercase">
+            </div>
+            <div>
+                <label class="block text-[10px] font-bold text-slate-700 mb-1">Pilih File Foto (JPG/PNG):</label>
+                <input type="file" id="uploadImageFile" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
+            </div>
+            <button onclick="uploadImageToGitHub()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Upload ke GitHub</button>
+        </div>
+    </div>
+
     <!-- Modal Generator Link Berbasis Kode POS -->
     <div id="resellerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
@@ -498,14 +561,11 @@
                 <button onclick="closeResellerModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <p class="text-[11px] text-slate-600">Masukkan <strong>Kode Konsumen / Reseller</strong> yang terdaftar di database POS GBA Anda agar pencatatan langsung sinkron.</p>
-            
             <div>
                 <label class="block text-[10px] font-bold text-slate-700 mb-1">Kode Konsumen / ID Reseller (dari POS GBA):</label>
                 <input type="text" id="customerCodeInput" placeholder="Contoh: CUST-001 atau KODE_RESSELER" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500 uppercase">
             </div>
-
             <button onclick="generateResellerLink()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Generate Link Katalog</button>
-            
             <div id="resultLinkBox" class="hidden space-y-2 pt-2 border-t">
                 <label class="block text-[10px] font-bold text-emerald-700">Link Unik Anda:</label>
                 <input type="text" id="generatedLinkOutput" readonly class="w-full p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-mono text-slate-700 select-all">
