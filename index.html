@@ -35,7 +35,6 @@
         let currentPage = 1;
         let currentRef = '';
 
-        // Cek URL parameter ?ref=... saat pertama kali web dibuka
         window.addEventListener('DOMContentLoaded', () => {
             const urlParams = new URLSearchParams(window.location.search);
             const refParam = urlParams.get('ref');
@@ -347,7 +346,7 @@
             let message = `Halo Admin Moónaa, saya ingin memesan produk berikut:\n\n`;
 
             if (currentRef) {
-                message += `📌 *JALUR RESELLER: ${currentRef.toUpperCase()}*\n`;
+                message += `📌 *KODE KONSUMEN / RESELLER (POS): ${currentRef.toUpperCase()}*\n`;
                 message += `---------------------------------\n`;
             }
 
@@ -376,7 +375,6 @@
             window.open(`https://wa.me/6288230527830?text=${encodeURIComponent('Halo Admin Moónaa, saya ingin bertanya seputar katalog produk.')}`, '_blank');
         }
 
-        // Fitur Generator Link Reseller Mandiri
         window.openResellerModal = function() {
             document.getElementById('resellerModal').classList.remove('hidden');
         }
@@ -386,11 +384,12 @@
         }
 
         window.generateResellerLink = function() {
-            let nameInput = document.getElementById('resellerNameInput').value.trim();
-            if (!nameInput) return alert("Masukkan nama atau kode reseller terlebih dahulu!");
+            let codeInput = document.getElementById('customerCodeInput').value.trim();
+            
+            if (!codeInput) return alert("Masukkan Kode Konsumen / Reseller dari POS GBA terlebih dahulu!");
             
             let baseUrl = window.location.origin + window.location.pathname;
-            let generatedUrl = `${baseUrl}?ref=${encodeURIComponent(nameInput)}`;
+            let generatedUrl = `${baseUrl}?ref=${encodeURIComponent(codeInput)}`;
             
             document.getElementById('resultLinkBox').classList.remove('hidden');
             document.getElementById('generatedLinkOutput').value = generatedUrl;
@@ -401,7 +400,7 @@
             copyText.select();
             copyText.setSelectionRange(0, 99999);
             navigator.clipboard.writeText(copyText.value);
-            alert("Link toko berhasil disalin! Silakan bagikan ke status atau grup WhatsApp.");
+            alert("Link katalog dengan Kode POS berhasil disalin!");
         }
     </script>
 </head>
@@ -418,15 +417,15 @@
                 </div>
             </div>
             <button onclick="openResellerModal()" class="bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200 text-[10px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
-                <i class="fa-solid fa-bullhorn text-[9px]"></i> Buat Link Reseller
+                <i class="fa-solid fa-barcode text-[9px]"></i> Buat Link Kode POS
             </button>
         </div>
     </header>
 
-    <!-- Banner Info Referral Reseller (Muncul jika ada ?ref=...) -->
+    <!-- Banner Info Referral -->
     <div id="reseller-banner" class="hidden bg-emerald-50 border-b border-emerald-100 py-1.5 px-4 text-center">
         <p class="text-[10px] text-emerald-800 font-medium">
-            ✨ Katalog Resmi Rekomendasi Reseller: <strong id="reseller-name-text" class="font-bold underline"></strong>
+            ✨ Kode Rujukan POS: <strong id="reseller-name-text" class="font-bold underline"></strong>
         </p>
     </div>
 
@@ -490,22 +489,24 @@
         <div class="flex justify-center items-center space-x-1 pt-4 pb-2" id="pagination-container"></div>
     </main>
 
-    <!-- Modal Buat Link Reseller Mandiri -->
+    <!-- Modal Generator Link Berbasis Kode POS -->
     <div id="resellerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid id-card text-pink-600"></i> Buat Link Toko Reseller</h3>
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-barcode text-pink-600"></i> Buat Link Berbasis Kode POS</h3>
                 <button onclick="closeResellerModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-[11px] text-slate-600">Masukkan nama atau kode unik reseller Anda agar setiap pesanan tercatat atas nama Anda untuk perhitungan komisi.</p>
+            <p class="text-[11px] text-slate-600">Masukkan <strong>Kode Konsumen / Reseller</strong> yang terdaftar di database POS GBA Anda agar pencatatan langsung sinkron.</p>
+            
             <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Nama / Kode Reseller:</label>
-                <input type="text" id="resellerNameInput" placeholder="Contoh: SitiBoutique" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500">
+                <label class="block text-[10px] font-bold text-slate-700 mb-1">Kode Konsumen / ID Reseller (dari POS GBA):</label>
+                <input type="text" id="customerCodeInput" placeholder="Contoh: CUST-001 atau KODE_RESSELER" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500 uppercase">
             </div>
-            <button onclick="generateResellerLink()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Generate Link Saya</button>
+
+            <button onclick="generateResellerLink()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Generate Link Katalog</button>
             
             <div id="resultLinkBox" class="hidden space-y-2 pt-2 border-t">
-                <label class="block text-[10px] font-bold text-emerald-700">Link Unik Anda (Siap Dibagikan):</label>
+                <label class="block text-[10px] font-bold text-emerald-700">Link Unik Anda:</label>
                 <input type="text" id="generatedLinkOutput" readonly class="w-full p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-mono text-slate-700 select-all">
                 <button onclick="copyGeneratedLink()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
                     <i class="fa-regular fa-copy"></i> Salin Link
