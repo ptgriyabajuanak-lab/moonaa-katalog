@@ -10,7 +10,7 @@
     <!-- Firebase SDK (v10 Modular) -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, child, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDfXoYuhyIn9Jg1LHUKrL6v6Ts3Ql4Hng",
@@ -188,7 +188,9 @@
                 let stok = p.stock !== undefined ? parseInt(p.stock) : 0;
                 let hargaJual = Number(p.sellPrice) || 0;
                 let formattedPrice = new Intl.NumberFormat('id-ID').format(hargaJual);
-                let imageUrl = p.image_url || `assets/${sku}.jpg`;
+                
+                // Ambil otomatis dari folder assets GitHub berdasarkan SKU
+                let imageUrl = `assets/${sku}.jpg`;
 
                 htmlContent += `
                     <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col justify-between">
@@ -377,7 +379,6 @@
             window.open(`https://wa.me/6288230527830?text=${encodeURIComponent('Halo Admin Moónaa, saya ingin bertanya seputar katalog produk.')}`, '_blank');
         }
 
-        // Modal Reseller
         window.openResellerModal = function() {
             document.getElementById('resellerModal').classList.remove('hidden');
         }
@@ -402,38 +403,6 @@
             navigator.clipboard.writeText(copyText.value);
             alert("Link katalog dengan Kode POS berhasil disalin!");
         }
-
-        // Modal Admin Upload Gambar (Password: 123)
-        window.openAdminUploadModal = function() {
-            let pass = prompt("Masukkan Password Admin:");
-            if (pass === "123") {
-                let selectOptions = globalProducts.map(p => `<option value="${p._key}">${p.sku || 'SKU'} - ${p.name || 'Produk'}</option>`).join('');
-                document.getElementById('adminProductSelect').innerHTML = selectOptions;
-                document.getElementById('adminUploadModal').classList.remove('hidden');
-            } else if (pass !== null) {
-                alert("Password salah!");
-            }
-        }
-
-        window.closeAdminUploadModal = function() {
-            document.getElementById('adminUploadModal').classList.add('hidden');
-        }
-
-        window.saveAdminImageLink = function() {
-            let productKey = document.getElementById('adminProductSelect').value;
-            let imgUrl = document.getElementById('adminImageUrlInput').value.trim();
-
-            if (!imgUrl) return alert("Link gambar tidak boleh kosong!");
-
-            let productRef = ref(db, 'products/' + productKey);
-            update(productRef, { image_url: imgUrl }).then(() => {
-                alert("Berhasil memperbarui link foto produk ke database POS!");
-                closeAdminUploadModal();
-                loadCatalogFromPOS();
-            }).catch((error) => {
-                alert("Gagal menyimpan: " + error.message);
-            });
-        }
     </script>
 </head>
 <body class="bg-slate-50 font-sans pb-24">
@@ -448,14 +417,9 @@
                     <p class="text-[9px] text-slate-500 font-semibold tracking-wide">PT Griya Baju Anak</p>
                 </div>
             </div>
-            <div class="flex items-center gap-1.5">
-                <button onclick="openAdminUploadModal()" class="bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 text-[10px] font-bold px-2 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm" title="Admin Upload Foto">
-                    <i class="fa-solid fa-cloud-arrow-up text-[9px]"></i> Upload Foto
-                </button>
-                <button onclick="openResellerModal()" class="bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200 text-[10px] font-bold px-2 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
-                    <i class="fa-solid fa-barcode text-[9px]"></i> Link POS
-                </button>
-            </div>
+            <button onclick="openResellerModal()" class="bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200 text-[10px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
+                <i class="fa-solid fa-barcode text-[9px]"></i> Buat Link Kode POS
+            </button>
         </div>
     </header>
 
@@ -526,26 +490,6 @@
         <div class="flex justify-center items-center space-x-1 pt-4 pb-2" id="pagination-container"></div>
     </main>
 
-    <!-- Modal Admin Upload Foto (Password 123) -->
-    <div id="adminUploadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-pink-600"></i> Admin Update Foto Produk</h3>
-                <button onclick="closeAdminUploadModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <p class="text-[11px] text-slate-600">Pilih produk dan masukkan link gambar online (misal dari ImgBB) untuk produk tersebut.</p>
-            <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Pilih Produk:</label>
-                <select id="adminProductSelect" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500"></select>
-            </div>
-            <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Link URL Foto (Direct Link):</label>
-                <input type="text" id="adminImageUrlInput" placeholder="https://i.ibb.co/..." class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500">
-            </div>
-            <button onclick="saveAdminImageLink()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Simpan Link Foto</button>
-        </div>
-    </div>
-
     <!-- Modal Generator Link Berbasis Kode POS -->
     <div id="resellerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
         <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
@@ -554,11 +498,14 @@
                 <button onclick="closeResellerModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <p class="text-[11px] text-slate-600">Masukkan <strong>Kode Konsumen / Reseller</strong> yang terdaftar di database POS GBA Anda agar pencatatan langsung sinkron.</p>
+            
             <div>
                 <label class="block text-[10px] font-bold text-slate-700 mb-1">Kode Konsumen / ID Reseller (dari POS GBA):</label>
                 <input type="text" id="customerCodeInput" placeholder="Contoh: CUST-001 atau KODE_RESSELER" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500 uppercase">
             </div>
+
             <button onclick="generateResellerLink()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Generate Link Katalog</button>
+            
             <div id="resultLinkBox" class="hidden space-y-2 pt-2 border-t">
                 <label class="block text-[10px] font-bold text-emerald-700">Link Unik Anda:</label>
                 <input type="text" id="generatedLinkOutput" readonly class="w-full p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-mono text-slate-700 select-all">
