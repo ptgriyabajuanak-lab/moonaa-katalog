@@ -1,619 +1,72 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Katalog Eksklusif Moónaa - PT Griya Baju Anak</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Firebase SDK (v10 Modular) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDfXoYuhyIn9Jg1LHUKrL6v6Ts3Ql4Hng",
-            authDomain: "gba-pos.firebaseapp.com",
-            databaseURL: "https://gba-pos-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "gba-pos",
-            storageBucket: "gba-pos.appspot.com",
-            messagingSenderId: "1068952660485",
-            appId: "1:1068952660485:web:92cb34918599d560060a6c",
-            measurementId: "G-HRMP4L1EF0"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
-        let globalProducts = [];
-        let filteredProducts = [];
-        let activeCategory = 'Semua';
-        let searchQuery = '';
-        let cart = [];
-        let itemsPerPage = 10;
-        let currentPage = 1;
-        let currentRef = '';
-
-        window.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const refParam = urlParams.get('ref');
-            if (refParam) {
-                currentRef = refParam.trim();
-                localStorage.setItem('moonaa_ref', currentRef);
-            } else {
-                currentRef = localStorage.getItem('moonaa_ref') || '';
-            }
-
-            if (currentRef) {
-                const bannerRef = document.getElementById('reseller-banner');
-                const textRef = document.getElementById('reseller-name-text');
-                if (bannerRef && textRef) {
-                    textRef.innerText = currentRef.toUpperCase();
-                    bannerRef.classList.remove('hidden');
-                }
-            }
-            loadCatalogFromPOS();
-        });
-
-        window.filterCategory = function(cat, element) {
-            activeCategory = cat;
-            currentPage = 1; 
-            document.querySelectorAll('.cat-btn').forEach(btn => {
-                btn.className = "cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50";
-            });
-            element.className = "cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-pink-600 text-white shadow-sm shrink-0";
-            applyFilterAndRender();
-        }
-
-        window.handleSearch = function(event) {
-            searchQuery = event.target.value.toLowerCase();
-            currentPage = 1; 
-            applyFilterAndRender();
-        }
-
-        window.changeItemsPerPage = function(selectElem) {
-            itemsPerPage = parseInt(selectElem.value);
-            currentPage = 1;
-            renderPage();
-        }
-
-        window.goToPage = function(page) {
-            currentPage = page;
-            renderPage();
-            window.scrollTo({ top: 300, behavior: 'smooth' });
-        }
-
-        function loadCatalogFromPOS() {
-            const grid = document.getElementById('product-grid');
-            grid.innerHTML = '<div class="col-span-2 text-center py-10 text-slate-400"><i class="fa-solid fa-spinner fa-spin text-lg mb-2"></i><p class="text-[11px]">Memuat data terbaru dari POS GBA...</p></div>';
-
-            const dbRef = ref(db);
-            get(child(dbRef, 'products')).then((snapshot) => {
-                if (snapshot.exists()) {
-                    let rawData = snapshot.val();
-                    
-                    globalProducts = [];
-                    if (Array.isArray(rawData)) {
-                        globalProducts = rawData.filter(item => item !== null).map((item, index) => {
-                            return { ...item, _key: index };
-                        }).reverse();
-                    } else if (typeof rawData === 'object') {
-                        globalProducts = Object.keys(rawData).map(key => {
-                            return { ...rawData[key], _key: key };
-                        }).reverse();
-                    }
-
-                    applyFilterAndRender();
-                } else {
-                    grid.innerHTML = '<div class="col-span-2 text-center py-10 text-slate-400 text-xs">Belum ada data produk di database POS.</div>';
-                }
-            }).catch((error) => {
-                console.error("Firebase Error:", error);
-                grid.innerHTML = '<div class="col-span-2 text-center py-10 text-rose-500 text-xs">Gagal sinkronisasi data POS. Periksa koneksi internet.</div>';
-            });
-        }
-
-        function applyFilterAndRender() {
-            filteredProducts = [];
-
-            for (let i = 0; i < globalProducts.length; i++) {
-                let p = globalProducts[i];
-                if (!p) continue;
-
-                let sku = p.sku || p._key || 'GBA';
-                let namaProduk = p.name || 'Produk Moónaa';
-                let kategori = p.category || '';
-                
-                let catLower = kategori.toLowerCase();
-                let targetLower = activeCategory.toLowerCase();
-
-                if (activeCategory === 'New arrival') {
-                    if (filteredProducts.length >= 30) break; 
-                } else if (activeCategory !== 'Semua') {
-                    let isMatch = false;
-                    if (targetLower.includes('boy') && catLower.includes('boy')) isMatch = true;
-                    else if (targetLower.includes('girl') && catLower.includes('girl')) isMatch = true;
-                    else if (targetLower.includes('set') && catLower.includes('set')) isMatch = true;
-                    else if (targetLower.includes('atasan') && catLower.includes('atasan')) isMatch = true;
-                    else if (targetLower.includes('celana') && (catLower.includes('celana') || catLower.includes('skirt') || catLower.includes('skort'))) isMatch = true;
-                    else if (targetLower.includes('dress') && (catLower.includes('dress') || catLower.includes('overall'))) isMatch = true;
-                    else if (targetLower.includes('jaket') && (catLower.includes('jaket') || catLower.includes('sweater') || catLower.includes('hoodie'))) isMatch = true;
-                    else if (catLower.includes(targetLower)) isMatch = true;
-
-                    if (!isMatch) continue;
-                }
-
-                let searchString = `${sku} ${namaProduk} ${kategori}`.toLowerCase();
-                if (searchQuery && !searchString.includes(searchQuery)) {
-                    continue;
-                }
-
-                filteredProducts.push(p);
-            }
-
-            renderPage();
-        }
-
-        function renderPage() {
-            const grid = document.getElementById('product-grid');
-            const paginationContainer = document.getElementById('pagination-container');
-            const infoContainer = document.getElementById('pagination-info');
-            
-            let totalData = filteredProducts.length;
-            let totalPages = Math.ceil(totalData / itemsPerPage) || 1;
-            if (currentPage > totalPages) currentPage = totalPages;
-            if (currentPage < 1) currentPage = 1;
-
-            let startIndex = (currentPage - 1) * itemsPerPage;
-            let endIndex = startIndex + itemsPerPage;
-            let displayList = filteredProducts.slice(startIndex, endIndex);
-
-            if (totalData === 0) {
-                grid.innerHTML = `<div class="col-span-2 text-center py-10 text-slate-400 text-xs">Belum ada produk untuk kategori ini.</div>`;
-                paginationContainer.innerHTML = '';
-                infoContainer.innerHTML = '';
-                return;
-            }
-
-            infoContainer.innerHTML = `Menampilkan ${startIndex + 1} - ${Math.min(endIndex, totalData)} dari ${totalData} produk`;
-
-            let htmlContent = '';
-            for (let i = 0; i < displayList.length; i++) {
-                let p = displayList[i];
-                let sku = p.sku || p._key || 'GBA';
-                let namaProduk = p.name || 'Produk Moónaa';
-                let kategori = p.category || '';
-                let ukuran = p.ukuran || 'All Size';
-                let stok = p.stock !== undefined ? parseInt(p.stock) : 0;
-                let hargaJual = Number(p.sellPrice) || 0;
-                let formattedPrice = new Intl.NumberFormat('id-ID').format(hargaJual);
-                let imageUrl = `assets/${sku}.jpg`;
-
-                htmlContent += `
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col justify-between">
-                        <div>
-                            <div class="relative bg-slate-100 h-36">
-                                <img src="${imageUrl}" alt="${namaProduk}" loading="lazy" class="w-full h-36 object-cover" onerror="handleImageError(this, '${sku}')">
-                                <span class="absolute top-2 left-2 bg-slate-900/70 backdrop-blur-md text-white text-[9px] px-2 py-0.5 rounded-md font-mono">${sku}</span>
-                            </div>
-                            <div class="p-2.5">
-                                <span class="text-[9px] text-pink-600 font-semibold uppercase tracking-wider">${kategori || 'Moónaa'}</span>
-                                <h3 class="font-bold text-slate-800 text-xs mt-0.5 line-clamp-1">${namaProduk}</h3>
-                                <p class="text-[10px] text-slate-500 mt-0.5">Size: ${ukuran}</p>
-                                <div class="mt-1.5 flex items-baseline justify-between">
-                                    <span class="text-xs font-bold text-pink-700">Rp ${formattedPrice}</span>
-                                    <span class="text-[9px] text-emerald-600 font-medium">Stok: ${stok}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="p-2.5 pt-0">
-                            <div class="flex items-center gap-1">
-                                <input type="number" id="qty-${sku}" min="1" value="1" class="w-14 p-1 bg-slate-50 border rounded-xl text-center text-xs font-bold focus:outline-none focus:border-pink-500">
-                                <button onclick="addBulkToCart('${sku}', '${namaProduk.replace(/'/g, "")}', '${ukuran}', ${hargaJual})" class="flex-1 bg-pink-600 hover:bg-pink-700 text-white text-xs font-medium py-2 rounded-xl transition shadow-sm flex items-center justify-center gap-1">
-                                    <i class="fa-solid fa-cart-plus text-[10px]"></i> + Keranjang
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            grid.innerHTML = htmlContent;
-
-            let pagHtml = '';
-            if (currentPage > 1) {
-                pagHtml += `<button onclick="goToPage(${currentPage - 1})" class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold hover:bg-pink-50 shadow-sm"><i class="fa-solid fa-chevron-left text-[10px]"></i></button>`;
-            }
-
-            for (let p = 1; p <= totalPages; p++) {
-                if (p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)) {
-                    if (p === currentPage) {
-                        pagHtml += `<button class="px-3.5 py-1.5 rounded-xl bg-pink-600 text-white text-xs font-bold shadow-sm">${p}</button>`;
-                    } else {
-                        pagHtml += `<button onclick="goToPage(${p})" class="px-3.5 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-pink-50 shadow-sm">${p}</button>`;
-                    }
-                } else if (p === currentPage - 2 || p === currentPage + 2) {
-                    pagHtml += `<span class="text-slate-400 text-xs px-1">...</span>`;
-                }
-            }
-
-            if (currentPage < totalPages) {
-                pagHtml += `<button onclick="goToPage(${currentPage + 1})" class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-xs font-bold hover:bg-pink-50 shadow-sm"><i class="fa-solid fa-chevron-right text-[10px]"></i></button>`;
-            }
-
-            paginationContainer.innerHTML = pagHtml;
-        }
-
-        window.handleImageError = function(imgElement, sku) {
-            if (imgElement.src.includes('.jpg') && !imgElement.src.includes('.jpeg')) {
-                imgElement.src = `assets/${sku}.jpeg`;
-            } else if (imgElement.src.includes('.jpeg')) {
-                imgElement.src = `assets/${sku}.png`;
-            } else {
-                imgElement.onerror = null;
-                imgElement.src = `https://via.placeholder.com/300x300?text=${encodeURIComponent(sku)}`;
-            }
-        }
-
-        window.addBulkToCart = function(sku, nama, ukuran, harga) {
-            let inputQty = document.getElementById(`qty-${sku}`);
-            let qtyToAdd = parseInt(inputQty.value) || 1;
-            if (qtyToAdd <= 0) return alert("Jumlah pesanan minimal 1 pcs.");
-
-            let existing = cart.find(item => item.sku === sku);
-            if (existing) {
-                existing.qty += qtyToAdd;
-            } else {
-                cart.push({ sku, nama, ukuran, harga, qty: qtyToAdd });
-            }
-
-            inputQty.value = 1;
-            updateCartBadge();
-            alert(`Berhasil menambahkan ${qtyToAdd} pcs ${nama} ke keranjang!`);
-        }
-
-        function updateCartBadge() {
-            let totalQty = cart.reduce((sum, item) => sum + item.qty, 0);
-            const badge = document.getElementById('cart-badge');
-            if (totalQty > 0) {
-                badge.innerText = totalQty;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-        }
-
-        window.openCartModal = function() {
-            renderCartModal();
-            document.getElementById('cartModal').classList.remove('hidden');
-        }
-
-        window.closeCartModal = function() {
-            document.getElementById('cartModal').classList.add('hidden');
-        }
-
-        function renderCartModal() {
-            const container = document.getElementById('cart-items-container');
-            const totalContainer = document.getElementById('cart-total-amount');
-
-            if (cart.length === 0) {
-                container.innerHTML = `<p class="text-xs text-center text-slate-400 py-8">Keranjang belanja Anda masih kosong.</p>`;
-                totalContainer.innerText = 'Rp 0';
-                return;
-            }
-
-            let html = '';
-            let grandTotal = 0;
-
-            cart.forEach((item, index) => {
-                let subtotal = item.harga * item.qty;
-                grandTotal += subtotal;
-                html += `
-                    <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100 gap-2">
-                        <div class="flex-1">
-                            <span class="text-[9px] font-mono text-slate-400">${item.sku}</span>
-                            <h4 class="font-bold text-xs text-slate-800 line-clamp-1">${item.nama}</h4>
-                            <p class="text-[11px] text-pink-700 font-semibold">Rp ${new Intl.NumberFormat('id-ID').format(item.harga)}</p>
-                        </div>
-                        <div class="flex items-center space-x-1.5">
-                            <input type="number" min="1" value="${item.qty}" onchange="updateDirectQty(${index}, this.value)" class="w-14 p-1 bg-white border rounded-lg text-center text-xs font-bold">
-                            <button onclick="removeItem(${index})" class="text-rose-500 hover:text-rose-700 p-1"><i class="fa-solid fa-trash text-xs"></i></button>
-                        </div>
-                    </div>
-                `;
-            });
-
-            container.innerHTML = html;
-            totalContainer.innerText = 'Rp ' + new Intl.NumberFormat('id-ID').format(grandTotal);
-        }
-
-        window.updateDirectQty = function(index, val) {
-            let q = parseInt(val) || 1;
-            if (q < 1) q = 1;
-            cart[index].qty = q;
-            updateCartBadge();
-            renderCartModal();
-        }
-
-        window.removeItem = function(index) {
-            cart.splice(index, 1);
-            updateCartBadge();
-            renderCartModal();
-        }
-
-        window.checkoutWhatsApp = function() {
-            if (cart.length === 0) return alert("Keranjang belanja masih kosong!");
-
-            let adminPhone = "6288230527830";
-            let message = `Halo Admin Moónaa, saya ingin memesan produk berikut:\n\n`;
-
-            if (currentRef) {
-                message += `📌 *KODE KONSUMEN / RESELLER (POS): ${currentRef.toUpperCase()}*\n`;
-                message += `---------------------------------\n`;
-            }
-
-            let grandTotal = 0;
-            let totalPcs = 0;
-            cart.forEach((item, idx) => {
-                let subtotal = item.harga * item.qty;
-                grandTotal += subtotal;
-                totalPcs += item.qty;
-                message += `${idx + 1}. *${item.nama}* (${item.sku})\n`;
-                message += `   Size: ${item.ukuran} | Qty: *${item.qty} Pcs* @ Rp ${new Intl.NumberFormat('id-ID').format(item.harga)}\n`;
-                message += `   Subtotal: Rp ${new Intl.NumberFormat('id-ID').format(subtotal)}\n\n`;
-            });
-
-            message += `---------------------------------\n` +
-                       `• Total Item: ${cart.length} Jenis Produk\n` +
-                       `• Total Qty: *${totalPcs} Pcs*\n` +
-                       `• *TOTAL PEMBAYARAN: Rp ${new Intl.NumberFormat('id-ID').format(grandTotal)}*\n` +
-                       `---------------------------------\n\n` +
-                       `Mohon cek ketersediaan stok dan total ongkirnya. Terima kasih!`;
-
-            window.open(`https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`, '_blank');
-        }
-
-        window.openAdminWA = function() {
-            window.open(`https://wa.me/6288230527830?text=${encodeURIComponent('Halo Admin Moónaa, saya ingin bertanya seputar katalog produk.')}`, '_blank');
-        }
-
-        // Modal Reseller
-        window.openResellerModal = function() {
-            document.getElementById('resellerModal').classList.remove('hidden');
-        }
-
-        window.closeResellerModal = function() {
-            document.getElementById('resellerModal').classList.add('hidden');
-        }
-
-        window.generateResellerLink = function() {
-            let codeInput = document.getElementById('customerCodeInput').value.trim();
-            if (!codeInput) return alert("Masukkan Kode Konsumen / Reseller dari POS GBA terlebih dahulu!");
-            let baseUrl = window.location.origin + window.location.pathname;
-            let generatedUrl = `${baseUrl}?ref=${encodeURIComponent(codeInput)}`;
-            document.getElementById('resultLinkBox').classList.remove('hidden');
-            document.getElementById('generatedLinkOutput').value = generatedUrl;
-        }
-
-        window.copyGeneratedLink = function() {
-            let copyText = document.getElementById('generatedLinkOutput');
-            copyText.select();
-            copyText.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(copyText.value);
-            alert("Link katalog dengan Kode POS berhasil disalin!");
-        }
-
-        // Modal Admin Upload Foto ke GitHub via API (Password: 123)
-        window.openAdminUploadModal = function() {
+window.uploadImageToGitHub = async function() {
             let pass = prompt("Masukkan Password Admin:");
-            if (pass === "123") {
-                document.getElementById('adminUploadModal').classList.remove('hidden');
-            } else if (pass !== null) {
-                alert("Password salah!");
+            if (pass !== "123") {
+                return alert("Password salah!");
             }
-        }
 
-        window.closeAdminUploadModal = function() {
-            document.getElementById('adminUploadModal').classList.add('hidden');
-        }
-
-        window.uploadImageToGitHub = function() {
             let skuInput = document.getElementById('uploadSkuInput').value.trim().toUpperCase();
             let fileInput = document.getElementById('uploadImageFile').files[0];
 
             if (!skuInput) return alert("Masukkan Kode SKU terlebih dahulu!");
             if (!fileInput) return alert("Pilih file gambar dari perangkat Anda!");
 
+            // Masukkan Token GitHub Classic yang sudah dibuat di sini
+            let githubToken = "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"; 
+            if (githubToken.includes("MASUKKAN_TOKEN")) {
+                return alert("Token GitHub belum dimasukkan di kodingan! Harap setel token admin terlebih dahulu.");
+            }
+
             let reader = new FileReader();
             reader.readAsDataURL(fileInput);
-            reader.onload = function () {
+            reader.onload = async function () {
                 let base64Content = reader.result.split(',')[1];
                 let fileName = `${skuInput}.jpg`;
                 
-                // Konfigurasi GitHub Repository Target
                 let owner = "ptgriyabajuanak-lab";
                 let repo = "moonaa-katalog";
                 let path = `assets/${fileName}`;
-                
-                // Token GitHub API (Pastikan token aktif memiliki izin repo write)
-                let token = "github_pat_11A5NHJNY09H3M... (Masukkan Token API GitHub Lu Disini)";
+                let apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-                alert("Fitur upload via API siap! (Pastikan Token GitHub sudah terpasang di kodingan jika ingin langsung push ke folder assets GitHub).");
+                alert("Sedang mengunggah foto ke folder assets GitHub...");
+
+                try {
+                    // Cek dulu apakah file dengan nama SKU tersebut sudah ada sebelumnya (untuk ambil SHA-nya kalau mau di-update)
+                    let sha = null;
+                    let getResponse = await fetch(apiUrl, {
+                        headers: { "Authorization": `token ${githubToken}` }
+                    });
+                    if (getResponse.ok) {
+                        let fileData = await getResponse.json();
+                        sha = fileData.sha;
+                    }
+
+                    // Kirim data file baru ke GitHub API
+                    let bodyData = {
+                        message: `Upload foto produk SKU: ${skuInput} via Admin Web`,
+                        content: base64Content
+                    };
+                    if (sha) bodyData.sha = sha; // Kalau file sudah ada, sertakan sha untuk menimpa file lama
+
+                    let putResponse = await fetch(apiUrl, {
+                        method: "PUT",
+                        headers: {
+                            "Authorization": `token ${githubToken}`,
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(bodyData)
+                    });
+
+                    if (putResponse.ok) {
+                        alert("✅ Berhasil! Foto produk berhasil di-upload langsung ke folder assets GitHub.");
+                        closeAdminUploadModal();
+                        location.reload(); // Refresh halaman untuk menampilkan foto baru
+                    } else {
+                        let errData = await putResponse.json();
+                        alert("Gagal upload ke GitHub: " + (errData.message || "Kesalahan tidak dikenal"));
+                    }
+                } catch (error) {
+                    console.error(error);
+                    alert("Terjadi kesalahan jaringan saat upload.");
+                }
             };
         }
-    </script>
-</head>
-<body class="bg-slate-50 font-sans pb-24">
-
-    <!-- Top Header Bar -->
-    <header class="bg-white border-b border-slate-100 sticky top-0 z-50 shadow-sm">
-        <div class="max-w-md mx-auto px-4 py-2.5 flex justify-between items-center">
-            <div class="flex items-center space-x-2.5">
-                <img src="logo.jpeg" alt="Logo GBA" class="w-9 h-9 rounded-xl object-cover shadow-sm border border-slate-200" onerror="this.src='https://via.placeholder.com/40?text=GBA'">
-                <div>
-                    <h1 class="text-xs font-bold text-slate-800 leading-tight">Moónaa</h1>
-                    <p class="text-[9px] text-slate-500 font-semibold tracking-wide">PT Griya Baju Anak</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-1.5">
-                <button onclick="openAdminUploadModal()" class="bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200 text-[10px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm" title="Admin Upload Foto">
-                    <i class="fa-solid fa-cloud-arrow-up text-[9px]"></i> Upload Foto
-                </button>
-                <button onclick="openResellerModal()" class="bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-200 text-[10px] font-bold px-2.5 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm">
-                    <i class="fa-solid fa-barcode text-[9px]"></i> Link POS
-                </button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Banner Info Referral -->
-    <div id="reseller-banner" class="hidden bg-emerald-50 border-b border-emerald-100 py-1.5 px-4 text-center">
-        <p class="text-[10px] text-emerald-800 font-medium">
-            ✨ Kode Rujukan POS: <strong id="reseller-name-text" class="font-bold underline"></strong>
-        </p>
-    </div>
-
-    <!-- Main Container -->
-    <main class="max-w-md mx-auto px-4 py-4 space-y-4">
-        
-        <!-- Search Bar -->
-        <div class="relative">
-            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
-                <i class="fa-solid fa-magnifying-glass text-xs"></i>
-            </span>
-            <input type="text" oninput="handleSearch(event)" placeholder="Cari produk, ukuran, atau kode SKU..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-xs text-slate-800 focus:outline-none focus:border-pink-500 shadow-sm transition">
-        </div>
-
-        <!-- Banner Promo -->
-        <div class="bg-gradient-to-r from-pink-600 to-rose-500 text-white p-4 rounded-2xl shadow-md relative overflow-hidden flex items-center justify-between">
-            <div class="relative z-10 pr-2">
-                <span class="bg-white/25 text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md">Pabrik & Produsen Utama</span>
-                <h2 class="font-bold text-sm mt-1.5">Produsen Baju Anak Moónaa</h2>
-                <p class="text-[11px] text-pink-100 mt-0.5">Langsung dari Pabrik, Kualitas Premium, Siap Partai Besar & Reseller.</p>
-            </div>
-            <div class="relative z-10 flex-shrink-0 w-14 h-14 bg-white rounded-full p-0.5 shadow-lg border-2 border-white/40 flex items-center justify-center overflow-hidden">
-                <img src="logo.jpg" alt="Logo Moónaa" class="w-full h-full object-cover rounded-full" onerror="this.src='https://via.placeholder.com/60?text=Moonaa'">
-            </div>
-            <div class="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
-        </div>
-
-        <!-- Filter Kategori -->
-        <div class="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-            <button onclick="filterCategory('Semua', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-pink-600 text-white shadow-sm shrink-0">Semua</button>
-            <button onclick="filterCategory('New arrival', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">New Arrival</button>
-            <button onclick="filterCategory('Set boy', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Set Boy</button>
-            <button onclick="filterCategory('Set girl', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Set Girl</button>
-            <button onclick="filterCategory('Atasan boy', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Atasan Boy</button>
-            <button onclick="filterCategory('Atasan girl', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Atasan Girl</button>
-            <button onclick="filterCategory('Celana boy', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Celana Boy</button>
-            <button onclick="filterCategory('Celana/skirt/skort girl', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Celana/Skirt Girl</button>
-            <button onclick="filterCategory('Dress/overall', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Dress / Overall</button>
-            <button onclick="filterCategory('Jaket/sweater', this)" class="cat-btn px-3.5 py-1.5 rounded-full text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-sm shrink-0 hover:bg-pink-50">Jaket / Sweater</button>
-        </div>
-
-        <!-- Kontrol Tampilan & Info Halaman -->
-        <div class="flex justify-between items-center pt-1 px-1">
-            <span id="pagination-info" class="text-[10px] text-slate-500 font-medium">Memuat info...</span>
-            <div class="flex items-center space-x-1.5">
-                <span class="text-[10px] text-slate-400">Tampil:</span>
-                <select onchange="changeItemsPerPage(this)" class="bg-white border border-slate-200 rounded-lg text-[10px] py-1 px-2 text-slate-700 font-bold focus:outline-none focus:border-pink-500 shadow-sm">
-                    <option value="10" selected>10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Product Grid -->
-        <div id="product-grid" class="grid grid-cols-2 gap-3">
-            <div class="col-span-2 text-center py-12 text-slate-400 text-xs">Memuat katalog...</div>
-        </div>
-
-        <!-- Pagination Angka -->
-        <div class="flex justify-center items-center space-x-1 pt-4 pb-2" id="pagination-container"></div>
-    </main>
-
-    <!-- Modal Admin Upload Foto (Password 123) -->
-    <div id="adminUploadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-pink-600"></i> Admin Upload Foto ke GitHub</h3>
-                <button onclick="closeAdminUploadModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <p class="text-[11px] text-slate-600">Pilih file foto dari perangkat lokal Anda dan ketik kode SKU produk sesuai nama file-nya.</p>
-            <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Kode SKU Produk:</label>
-                <input type="text" id="uploadSkuInput" placeholder="Contoh: GBA-8593" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500 uppercase">
-            </div>
-            <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Pilih File Foto (JPG/PNG):</label>
-                <input type="file" id="uploadImageFile" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
-            </div>
-            <button onclick="uploadImageToGitHub()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Upload ke GitHub</button>
-        </div>
-    </div>
-
-    <!-- Modal Generator Link Berbasis Kode POS -->
-    <div id="resellerModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-barcode text-pink-600"></i> Buat Link Berbasis Kode POS</h3>
-                <button onclick="closeResellerModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <p class="text-[11px] text-slate-600">Masukkan <strong>Kode Konsumen / Reseller</strong> yang terdaftar di database POS GBA Anda agar pencatatan langsung sinkron.</p>
-            <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Kode Konsumen / ID Reseller (dari POS GBA):</label>
-                <input type="text" id="customerCodeInput" placeholder="Contoh: CUST-001 atau KODE_RESSELER" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500 uppercase">
-            </div>
-            <button onclick="generateResellerLink()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Generate Link Katalog</button>
-            <div id="resultLinkBox" class="hidden space-y-2 pt-2 border-t">
-                <label class="block text-[10px] font-bold text-emerald-700">Link Unik Anda:</label>
-                <input type="text" id="generatedLinkOutput" readonly class="w-full p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] font-mono text-slate-700 select-all">
-                <button onclick="copyGeneratedLink()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-xl text-xs transition flex items-center justify-center gap-1.5 shadow-sm">
-                    <i class="fa-regular fa-copy"></i> Salin Link
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Keranjang Belanja -->
-    <div id="cartModal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4">
-        <div class="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 shadow-2xl space-y-4 max-h-[85vh] flex flex-col">
-            <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-cart-shopping text-pink-600"></i> Keranjang Belanja</h3>
-                <button onclick="closeCartModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <div id="cart-items-container" class="space-y-2 overflow-y-auto flex-1 pr-1"></div>
-            <div class="border-t pt-3 space-y-3">
-                <div class="flex justify-between items-center font-bold text-sm">
-                    <span class="text-slate-600">Total Keseluruhan:</span>
-                    <span id="cart-total-amount" class="text-pink-700 text-base">Rp 0</span>
-                </div>
-                <button onclick="checkoutWhatsApp()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition shadow-md flex items-center justify-center gap-2 text-xs">
-                    <i class="fa-brands fa-whatsapp text-base"></i> Kirim Pesanan via WhatsApp
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Navigation Bar -->
-    <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-40 max-w-md mx-auto flex justify-around py-2 shadow-lg">
-        <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" class="flex flex-col items-center text-pink-600 text-center w-1/3">
-            <i class="fa-solid fa-house text-sm mb-0.5"></i>
-            <span class="text-[10px] font-medium">Beranda</span>
-        </button>
-        <button onclick="openCartModal()" class="relative flex flex-col items-center text-slate-400 hover:text-pink-600 text-center w-1/3">
-            <div class="relative">
-                <i class="fa-solid fa-cart-shopping text-sm mb-0.5"></i>
-                <span id="cart-badge" class="hidden absolute -top-2 -right-3 bg-rose-500 text-white font-bold text-[9px] w-4 h-4 rounded-full flex items-center justify-center shadow">0</span>
-            </div>
-            <span class="text-[10px] font-medium">Keranjang</span>
-        </button>
-        <button onclick="openAdminWA()" class="flex flex-col items-center text-slate-400 hover:text-emerald-600 text-center w-1/3">
-            <i class="fa-brands fa-whatsapp text-sm mb-0.5"></i>
-            <span class="text-[10px] font-medium">Hubungi WA</span>
-        </button>
-    </nav>
-
-</body>
-</html>
