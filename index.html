@@ -403,7 +403,7 @@
             alert("Link katalog dengan Kode POS berhasil disalin!");
         }
 
-        // Modal Admin Upload Foto ke GitHub via API (Password: 123)
+        // Modal Admin Panduan Drag and Drop ke Folder Assets (Password: 123)
         window.openAdminUploadModal = function() {
             let pass = prompt("Masukkan Password Admin:");
             if (pass === "123") {
@@ -417,66 +417,9 @@
             document.getElementById('adminUploadModal').classList.add('hidden');
         }
 
-        window.uploadImageToGitHub = async function() {
-            let skuInput = document.getElementById('uploadSkuInput').value.trim().toUpperCase();
-            let fileInput = document.getElementById('uploadImageFile').files[0];
-
-            if (!skuInput) return alert("Masukkan Kode SKU terlebih dahulu!");
-            if (!fileInput) return alert("Pilih file gambar dari perangkat Anda!");
-
-            let githubToken = "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";
-
-            let reader = new FileReader();
-            reader.readAsDataURL(fileInput);
-            reader.onload = async function () {
-                let base64Content = reader.result.split(',')[1];
-                let fileName = `${skuInput}.jpg`;
-                
-                let owner = "ptgriyabajuanak-lab";
-                let repo = "moonaa-katalog";
-                let path = `assets/${fileName}`;
-                let apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-
-                alert("Sedang mengunggah foto ke folder assets GitHub...");
-
-                try {
-                    let sha = null;
-                    let getResponse = await fetch(apiUrl, {
-                        headers: { "Authorization": `token ${githubToken}` }
-                    });
-                    if (getResponse.ok) {
-                        let fileData = await getResponse.json();
-                        sha = fileData.sha;
-                    }
-
-                    let bodyData = {
-                        message: `Upload foto produk SKU: ${skuInput} via Admin Web`,
-                        content: base64Content
-                    };
-                    if (sha) bodyData.sha = sha;
-
-                    let putResponse = await fetch(apiUrl, {
-                        method: "PUT",
-                        headers: {
-                            "Authorization": `token ${githubToken}`,
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify(bodyData)
-                    });
-
-                    if (putResponse.ok) {
-                        alert("✅ Berhasil! Foto produk berhasil di-upload langsung ke folder assets GitHub.");
-                        closeAdminUploadModal();
-                        location.reload();
-                    } else {
-                        let errData = await putResponse.json();
-                        alert("Gagal upload ke GitHub: " + (errData.message || "Kesalahan tidak dikenal"));
-                    }
-                } catch (error) {
-                    console.error(error);
-                    alert("Terjadi kesalahan jaringan saat upload.");
-                }
-            };
+        window.goToGitHubAssets = function() {
+            // Langsung membuka folder assets di repository GitHub Anda
+            window.open("https://github.com/ptgriyabajuanak-lab/moonaa-katalog/tree/main/assets", "_blank");
         }
     </script>
 </head>
@@ -570,23 +513,21 @@
         <div class="flex justify-center items-center space-x-1 pt-4 pb-2" id="pagination-container"></div>
     </main>
 
-    <!-- Modal Admin Upload Foto (Password 123) -->
+    <!-- Modal Admin Panduan Upload Drag & Drop (Password 123) -->
     <div id="adminUploadModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-3.5">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl space-y-4 text-center">
             <div class="flex justify-between items-center border-b pb-3">
-                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-pink-600"></i> Admin Upload Foto ke GitHub</h3>
+                <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2"><i class="fa-solid fa-cloud-arrow-up text-pink-600"></i> Admin Upload Foto (Drag & Drop)</h3>
                 <button onclick="closeAdminUploadModal()" class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xs"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            <p class="text-[11px] text-slate-600">Pilih file foto dari perangkat lokal Anda dan ketik kode SKU produk sesuai nama file-nya.</p>
-            <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Kode SKU Produk:</label>
-                <input type="text" id="uploadSkuInput" placeholder="Contoh: GBA-8593" class="w-full p-2.5 bg-slate-50 border rounded-xl text-xs font-semibold focus:outline-none focus:border-pink-500 uppercase">
+            <div class="bg-pink-50 p-4 rounded-2xl border border-pink-100 space-y-2">
+                <i class="fa-brands fa-github text-3xl text-pink-600 mb-1"></i>
+                <h4 class="font-bold text-xs text-slate-800">Upload Super Gampang ke Folder Assets</h4>
+                <p class="text-[11px] text-slate-600">Klik tombol di bawah untuk membuka folder <strong>assets</strong> GitHub. Di sana admin tinggal <strong>tarik & letakkan (drag & drop)</strong> foto produk (pastikan beri nama sesuai SKU, misal: <code class="bg-white px-1.5 py-0.5 rounded font-bold text-pink-600">GBA-001.jpg</code>) lalu klik <strong>Commit changes</strong>!</p>
             </div>
-            <div>
-                <label class="block text-[10px] font-bold text-slate-700 mb-1">Pilih File Foto (JPG/PNG):</label>
-                <input type="file" id="uploadImageFile" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-pink-50 file:text-pink-700 hover:file:bg-pink-100">
-            </div>
-            <button onclick="uploadImageToGitHub()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm">Upload ke GitHub</button>
+            <button onclick="goToGitHubAssets()" class="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold py-3 rounded-xl text-xs transition shadow-sm flex items-center justify-center gap-2">
+                <i class="fa-solid fa-folder-open"></i> Buka Folder Assets di GitHub
+            </button>
         </div>
     </div>
 
